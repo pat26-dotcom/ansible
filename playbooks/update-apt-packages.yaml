@@ -1,0 +1,16 @@
+---
+- hosts: all
+
+  become: true
+  tasks:
+    - name: Update apt packages
+      apt:
+        update_cache: yes
+        upgrade: yes
+      #register: apt_update_result
+
+ #   - name: Reboot if required
+   #   reboot:
+  #      msg: "Rebooting after package update"
+   #     when: apt_update_result.reboot_required | default(false)
+   #   when: ansible_distribution != 'Windows'
