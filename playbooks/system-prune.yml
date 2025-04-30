@@ -13,9 +13,56 @@
   hosts: "{{ target | default('docker_nodes') }}"
   gather_facts: true          # wir brauchen ansible_mounts
   become: true
+# system-prune.yml
+# Playbook: Docker-Ressourcen aufräumen, wenn Speicherplatz knapp wird
+# Fix v1.1: Integer‑Typen korrekt behandeln, damit der "when"‑Vergleich funktioniert
+#
+#   – docker_free_space_gb wird jetzt explizit zu int gecastet
+#   – die when‑Bedingung nutzt |int auf beiden Seiten
+# 
+
+---
+- name: "Docker System Prune – platzgesteuert"
+  hosts: "{{ target | default('docker_nodes') }}"
+  gather_facts: true
+  become: true
 
   vars:
-    docker_data_path: "/var/lib/docker"   # ggf. anpassen
+    docker_data_path: "/var/lib/docker"
+    min_free_space_gb: 20
+    prune_volumes: false
+    prune_dry_run: false
+
+  tasks:
+    - name: "Ermittle Mount-Info für Docker-Datenpfad"
+      ansible.builtin.set_fact:
+        docker_mount: "{{ ansible_mounts | selectattr('mount', '==', docker_data_path) | list | first | default({}) }}"
+
+    - name: "Freier Speicher (GB) — als Integer"
+      ansible.builtin.set_fact:
+        docker_free_space_gb: "{{ ((docker_mount.size_available | default(0)) // 1073741824) | int }}"
+
+    - name: "Logge Freiraum vor Prune"
+      ansible.builtin.debug:
+        msg: "Host {{ inventory_hostname }} – freier Platz im Docker-Storage: {{ docker_free_space_gb }} GB (Schwellwert: {{ min_free_space_gb }} GB)"
+
+    - name: "Docker system prune, falls Schwellwert unterschritten"
+      community.docker.docker_prune:
+        containers: true
+        images: true
+        networks: true
+        volumes: "{{ prune_volumes }}"
+        builder_cache: true
+        dry_run: "{{ prune_dry_run }}"
+      when: docker_free_space_gb | int < min_free_space_gb | int
+      register: prune_result
+      changed_when: prune_result is defined and prune_result.pruned | length > 0
+
+    - name: "Logge Ergebnis"
+      ansible.builtin.debug:
+        var: prune_result
+      when: prune_result is defined
+f. anpassen
     min_free_space_gb: 20                  # Schwellwert
     prune_volumes: false                   # true => auch dangling volumes löschen
     prune_dry_run: false                   # true => nur anzeigen, was gelöscht würde

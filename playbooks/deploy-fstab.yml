@@ -1,48 +1,48 @@
-# system-prune.yml
-# Playbook: Docker-Ressourcen aufräumen, wenn Speicherplatz knapp wird
-# Fix v1.1: Integer‑Typen korrekt behandeln, damit der "when"‑Vergleich funktioniert
+# deploy-fstab.yml
+# Playbook für Ansible Semaphore: Fügt gezielt neue NFS‑Einträge zur /etc/fstab hinzu,
+# belässt alle übrigen Zeilen unverändert und aktiviert sie sofort.
 #
-#   – docker_free_space_gb wird jetzt explizit zu int gecastet
-#   – die when‑Bedingung nutzt |int auf beiden Seiten
-# 
+# Tipp: Passe die Liste `fstab_new_entries` im Semaphore‑Formular an, falls IPs, Pfade oder Optionen variieren.
+
 ---
-- name: "Docker System Prune – platzgesteuert"
-  hosts: "{{ target | default('docker_nodes') }}"
-  gather_facts: true
+- name: "Custom NFS Mounts in /etc/fstab verwalten"
+  hosts: "{{ target | default('all') }}"  # Inventory‑Gruppe
   become: true
+  gather_facts: false
 
   vars:
-    docker_data_path: "/var/lib/docker"
-    min_free_space_gb: 20
-    prune_volumes: false
-    prune_dry_run: false
+    fstab_dest: "/etc/fstab"
+    fstab_owner: "root"
+    fstab_group: "root"
+    fstab_mode: "0644"
+
+    # Einträge, die ergänzt bzw. aktualisiert werden sollen
+    fstab_new_entries:
+      - ""
+      - "# Paperless-ngx Mount - OmniOS Server"
+      - "10.11.2.2:/nvme/paperless /mnt/paperless nfs4 defaults,_netdev,hard,intr,resvport,nfsvers=4.2,proto=tcp,rsize=1048576,wsize=1048576 0 0"
+      - ""
+      - "# Media Mounts - OmniOS Server"
+      - "10.11.2.2:/hdd/nvr /mnt/nvr nfs4 defaults,_netdev,noatime,nodiratime,rsize=1048576,wsize=1048576,async,nconnect=4 0 0"
+      - "10.11.2.2:/hdd/data /mnt/arr-stack nfs4 defaults,_netdev,noatime,nodiratime,rsize=1048576,wsize=1048576,async,nconnect=4 0 0"
+      - ""
 
   tasks:
-    - name: "Ermittle Mount-Info für Docker-Datenpfad"
-      ansible.builtin.set_fact:
-        docker_mount: "{{ ansible_mounts | selectattr('mount', '==', docker_data_path) | list | first | default({}) }}"
+    - name: "Füge/aktualisiere Ansible‑Block in /etc/fstab"
+      ansible.builtin.blockinfile:
+        path: "{{ fstab_dest }}"
+        block: |
+          {% for line in fstab_new_entries %}{{ line }}
+          {% endfor %}
+        marker: "# === ANSIBLE MANAGED NFS ENTRIES: {mark} ==="
+        create: true
+        owner: "{{ fstab_owner }}"
+        group: "{{ fstab_group }}"
+        mode: "{{ fstab_mode }}"
+        backup: true
+      notify: Remount filesystems
 
-    - name: "Freier Speicher (GB) — als Integer"
-      ansible.builtin.set_fact:
-        docker_free_space_gb: "{{ ((docker_mount.size_available | default(0)) // 1073741824) | int }}"
-
-    - name: "Logge Freiraum vor Prune"
-      ansible.builtin.debug:
-        msg: "Host {{ inventory_hostname }} – freier Platz im Docker-Storage: {{ docker_free_space_gb }} GB (Schwellwert: {{ min_free_space_gb }} GB)"
-
-    - name: "Docker system prune, falls Schwellwert unterschritten"
-      community.docker.docker_prune:
-        containers: true
-        images: true
-        networks: true
-        volumes: "{{ prune_volumes }}"
-        builder_cache: true
-        dry_run: "{{ prune_dry_run }}"
-      when: docker_free_space_gb | int < min_free_space_gb | int
-      register: prune_result
-      changed_when: prune_result is defined and prune_result.pruned | length > 0
-
-    - name: "Logge Ergebnis"
-      ansible.builtin.debug:
-        var: prune_result
-      when: prune_result is defined
+  handlers:
+    - name: "Remount filesystems"
+      ansible.builtin.command: "mount -a"
+      changed_when: false
