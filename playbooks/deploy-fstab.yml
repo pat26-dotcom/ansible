@@ -4,7 +4,7 @@
 #
 #   – docker_free_space_gb wird jetzt explizit zu int gecastet
 #   – die when‑Bedingung nutzt |int auf beiden Seiten
-#
+# 
 ---
 - name: "Docker System Prune – platzgesteuert"
   hosts: "{{ target | default('docker_nodes') }}"
