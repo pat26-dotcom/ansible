@@ -20,7 +20,7 @@
     fstab_new_entries:
       - ""
       - "# Paperless-ngx Mount - OmniOS Server"
-      - "10.11.2.2:/mnt/nvme/paperless /mnt/paperless nfs4 defaults,_netdev,hard,intr,resvport,nfsvers=4.2,proto=tcp,rsize=1048576,wsize=1048576 0 0"
+      - "10.11.2.2:/mnt/nvme/Applications/paperless /mnt/paperless nfs4 defaults,_netdev,hard,intr,resvport,nfsvers=4.2,proto=tcp,rsize=1048576,wsize=1048576 0 0"
       - ""
       - "# Media Mounts - OmniOS Server"
       - "10.11.2.2:/mnt/hdd/nvr /mnt/nvr nfs4 defaults,_netdev,noatime,nodiratime,rsize=1048576,wsize=1048576,async,nconnect=4 0 0"
