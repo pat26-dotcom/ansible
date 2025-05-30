@@ -25,7 +25,6 @@
       - "# Media Mounts - TrueNAS Server"
       - "10.11.2.2:/mnt/hdd/nvr /mnt/nvr nfs4 defaults,_netdev,noatime,nodiratime,rsize=1048576,wsize=1048576,async,nconnect=4 0 0"
       - "10.11.2.2:/mnt/hdd/data /mnt/arr-stack nfs4 defaults,_netdev,noatime,nodiratime,rsize=1048576,wsize=1048576,async,nconnect=4 0 0"
-      - "10.11.2.2:/mnt/hdd/minio /mnt/minio nfs4 defaults,_netdev,noatime,nodiratime,rsize=1048576,wsize=1048576,async,nconnect=4 0 0"
       - ""
 
   tasks:
